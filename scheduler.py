@@ -1,4 +1,5 @@
 from apscheduler.schedulers.background import BackgroundScheduler
+import os
 import time
 import logging
 import subprocess
@@ -26,8 +27,8 @@ def get_gpu_memory(targets=[0, 1, 2, 3]):
 
     return meminfos
 
-def main_scheduler(targets, thres=1000):
-    scheduler.add_job(main_job, 'interval', seconds=5, args=[targets, thres], id='main_job')
+def main_scheduler(targets, thres=1000, queue='queue.txt'):
+    scheduler.add_job(main_job, 'interval', seconds=5, args=[targets, thres, queue], id='main_job')
     scheduler.start()
 
     try:
@@ -38,22 +39,22 @@ def main_scheduler(targets, thres=1000):
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
 
-def main_job(targets, thres):
+def main_job(targets, thres, queue):
     #! Load jobs queued
-    # todo. queue should be different each unique server
-    with open('queue.txt', 'r') as f:
-        queue = f.read().splitlines()
-        # queue = queue[1:]
+    if not os.path.exists(queue):
+        print("Job queue is not found.")
+        return
 
-    jobs = queue
-    jobs = [e.split('#####') for e in jobs]
+    with open(queue, 'r') as f:
+        jobs = f.read().splitlines()
+        jobs = [e.split('#####') for e in jobs]
 
     #! Remove jobs not necessary
     occupied_gpus = []
     new_jobs = []
     for idx, job in enumerate(jobs):
-        target = job[0]
-        gpus = target.split(',')
+        gpus, command, _ = job
+        gpus = gpus.split(',')
 
         # if any of gpus in occupied gpus
         if any(e in occupied_gpus for e in gpus):
@@ -65,10 +66,9 @@ def main_job(targets, thres):
     #! Check the condition to run job
     runs = []
     for idx, job in new_jobs:
-        target = job[0]
-        command = job[1]
+        gpus, command, cmd = job
 
-        meminfos = get_gpu_memory(targets)
+        meminfos = get_gpu_memory(gpus)
         for i, meminfo in enumerate(meminfos):
             print(f"GPU {i}: {meminfo:.2f} MB")
 
@@ -78,15 +78,15 @@ def main_job(targets, thres):
                 cnt += 1
 
         if cnt == len(targets):
-            process = subprocess.Popen(command, shell=True)
+            process = subprocess.Popen(command, cwd=cmd, shell=True)
 
             runs.append(idx)
 
     #! Remove batched jobs (disble when debugging 😱)
-    with open('queue.txt', 'w') as f:
+    with open(queue, 'w') as f:
         for idx, job in enumerate(jobs):
             if idx not in runs:
-                f.write(job[0] + '#####' + job[1] + '\n')
+                f.write(job[0] + '#####' + job[1] + '#####' + job[2] + '\n')
         f.close()
 
 
@@ -95,9 +95,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GPU Memory Monitor')
     parser.add_argument('--targets', type=int, nargs='+', default=[0, 1, 2, 3], help='GPU indices to monitor')
     parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger training')
+    parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
     args = parser.parse_args()
 
     print(f"Monitoring {args.targets} with threshold {args.thres}.")
     print(f"Press Ctrl+C to stop.")
 
-    main_scheduler(args.targets, args.thres)
+    main_scheduler(args.targets, args.thres, args.queue)
