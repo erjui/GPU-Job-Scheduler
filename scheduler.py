@@ -1,6 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 import time
 import logging
+import subprocess
 
 # pip install apscheduler
 # pip install nvidia-ml-py3
@@ -25,21 +26,6 @@ def get_gpu_memory(targets=[0, 1, 2, 3]):
 
     return meminfos
 
-def run_training():
-    import subprocess
-
-    print("Training...")
-    command = "your command to train"
-    # command = "python trainer/train.py +experiment=cxr_medmae"
-    # command = "python -c 'print(\"Hello World!\")'"
-    process = subprocess.Popen(command, shell=True)
-    process.wait()
-    time.sleep(10)
-    print("Training finished.")
-
-    scheduler.remove_job('main_job')
-    scheduler.print_jobs()
-
 def main_scheduler(targets, thres=1000):
     scheduler.add_job(main_job, 'interval', seconds=5, args=[targets, thres], id='main_job')
     scheduler.start()
@@ -53,24 +39,55 @@ def main_scheduler(targets, thres=1000):
         scheduler.shutdown()
 
 def main_job(targets, thres):
-    global on_train
+    #! Load jobs queued
+    # todo. queue should be different each unique server
+    with open('queue.txt', 'r') as f:
+        queue = f.read().splitlines()
+        # queue = queue[1:]
 
-    if on_train == True:
-        return
+    jobs = queue
+    jobs = [e.split('#####') for e in jobs]
 
-    meminfos = get_gpu_memory(targets)
-    for i, meminfo in enumerate(meminfos):
-        print(f"GPU {i}: {meminfo:.2f} MB")
-    print()
+    #! Remove jobs not necessary
+    occupied_gpus = []
+    new_jobs = []
+    for idx, job in enumerate(jobs):
+        target = job[0]
+        gpus = target.split(',')
 
-    cnt = 0
-    for meminfo in meminfos:
-        if meminfo < thres:
-            cnt += 1
+        # if any of gpus in occupied gpus
+        if any(e in occupied_gpus for e in gpus):
+            continue
 
-    if cnt == len(targets):
-        run_training()
-        on_train = True
+        occupied_gpus.extend(gpus)
+        new_jobs.append([idx, job])
+
+    #! Check the condition to run job
+    runs = []
+    for idx, job in new_jobs:
+        target = job[0]
+        command = job[1]
+
+        meminfos = get_gpu_memory(targets)
+        for i, meminfo in enumerate(meminfos):
+            print(f"GPU {i}: {meminfo:.2f} MB")
+
+        cnt = 0
+        for meminfo in meminfos:
+            if meminfo < thres:
+                cnt += 1
+
+        if cnt == len(targets):
+            process = subprocess.Popen(command, shell=True)
+
+            runs.append(idx)
+
+    #! Remove batched jobs (disble when debugging 😱)
+    with open('queue.txt', 'w') as f:
+        for idx, job in enumerate(jobs):
+            if idx not in runs:
+                f.write(job[0] + '#####' + job[1] + '\n')
+        f.close()
 
 
 if __name__ == '__main__':
