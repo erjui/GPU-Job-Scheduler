@@ -1,6 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 import os
 import time
+import datetime
 import logging
 import subprocess
 
@@ -27,8 +28,8 @@ def get_gpu_memory(targets=[0, 1, 2, 3]):
 
     return meminfos
 
-def main_scheduler(targets, thres=1000, queue='queue.txt'):
-    scheduler.add_job(main_job, 'interval', seconds=5, args=[targets, thres, queue], id='main_job')
+def main_scheduler(targets, thres=1000, queue='queue.txt', interval=300):
+    scheduler.add_job(main_job, 'interval', seconds=interval, args=[targets, thres, queue], id='main_job', next_run_time=datetime.datetime.now())
     scheduler.start()
 
     try:
