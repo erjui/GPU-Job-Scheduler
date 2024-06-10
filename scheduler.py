@@ -21,15 +21,15 @@ def get_gpu_memory(targets=[0, 1, 2, 3]):
     count = nvidia_smi.nvmlDeviceGetCount()
 
     meminfos = []
-    for index in range(count):
+    for index in targets:
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(index)
         meminfo = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
         meminfos.append(meminfo.used / 1024 / 1024)
 
     return meminfos
 
-def main_scheduler(targets, thres=1000, queue='queue.txt', interval=300):
-    scheduler.add_job(main_job, 'interval', seconds=interval, args=[targets, thres, queue], id='main_job', next_run_time=datetime.datetime.now())
+def main_scheduler(thres=1000, queue='queue.txt', interval=300):
+    scheduler.add_job(main_job, 'interval', seconds=interval, args=[thres, queue], id='main_job', next_run_time=datetime.datetime.now())
     scheduler.start()
 
     try:
@@ -40,7 +40,7 @@ def main_scheduler(targets, thres=1000, queue='queue.txt', interval=300):
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
 
-def main_job(targets, thres, queue):
+def main_job(thres, queue):
     #! Load jobs queued
     if not os.path.exists(queue):
         print("Job queue is not found.")
@@ -68,6 +68,8 @@ def main_job(targets, thres, queue):
     runs = []
     for idx, job in new_jobs:
         gpus, command, cmd = job
+        gpus = gpus.split(',')
+        gpus = [int(gpu) for gpu in gpus]
 
         meminfos = get_gpu_memory(gpus)
         for i, meminfo in enumerate(meminfos):
@@ -78,7 +80,7 @@ def main_job(targets, thres, queue):
             if meminfo < thres:
                 cnt += 1
 
-        if cnt == len(targets):
+        if cnt == len(gpus):
             process = subprocess.Popen(command, cwd=cmd, shell=True)
 
             runs.append(idx)
@@ -94,12 +96,11 @@ def main_job(targets, thres, queue):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='GPU Memory Monitor')
-    parser.add_argument('--targets', type=int, nargs='+', default=[0, 1, 2, 3], help='GPU indices to monitor')
     parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger training')
     parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
     args = parser.parse_args()
 
-    print(f"Monitoring {args.targets} with threshold {args.thres}.")
+    print(f"Monitoring with threshold {args.thres}.")
     print(f"Press Ctrl+C to stop.")
 
-    main_scheduler(args.targets, args.thres, args.queue)
+    main_scheduler(args.thres, args.queue)
