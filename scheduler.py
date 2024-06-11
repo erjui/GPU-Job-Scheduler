@@ -6,8 +6,6 @@ import logging
 import functools
 import subprocess
 
-# pip install apscheduler
-# pip install nvidia-ml-py3
 
 logging.basicConfig(level=logging.ERROR)
 
