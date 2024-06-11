@@ -10,8 +10,6 @@ import subprocess
 logging.basicConfig(level=logging.ERROR)
 
 scheduler = BackgroundScheduler()
-global on_train
-on_train = False
 
 def get_gpu_memory(targets=[0, 1, 2, 3]):
     import nvidia_smi
