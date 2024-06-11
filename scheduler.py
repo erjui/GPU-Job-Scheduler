@@ -3,6 +3,7 @@ import os
 import time
 import datetime
 import logging
+import functools
 import subprocess
 
 # pip install apscheduler
@@ -40,6 +41,11 @@ def main_scheduler(thres=1000, queue='queue.txt', interval=300):
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
 
+def pre_exec(gpus, meminfos, thres):
+    for gpu, meminfo in zip(gpus, meminfos):
+        print(f"GPU {gpu}: [{meminfo:.2f} / {thres}] MB")
+    print("New job is submitted successfully 🚀")
+
 def main_job(thres, queue):
     #! Load jobs queued
     if not os.path.exists(queue):
@@ -72,8 +78,6 @@ def main_job(thres, queue):
         gpus = [int(gpu) for gpu in gpus]
 
         meminfos = get_gpu_memory(gpus)
-        for i, meminfo in enumerate(meminfos):
-            print(f"GPU {i}: {meminfo:.2f} MB")
 
         cnt = 0
         for meminfo in meminfos:
@@ -81,7 +85,8 @@ def main_job(thres, queue):
                 cnt += 1
 
         if cnt == len(gpus):
-            process = subprocess.Popen(command, cwd=cmd, shell=True)
+            infos = functools.partial(pre_exec, gpus, meminfos, thres)
+            process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cmd, shell=True)
 
             runs.append(idx)
 
