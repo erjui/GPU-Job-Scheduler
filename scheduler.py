@@ -100,8 +100,8 @@ def main_job(thres, queue):
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='GPU Memory Monitor')
-    parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger training')
+    parser = argparse.ArgumentParser(description='GPU job scheduler')
+    parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger job')
     parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
     args = parser.parse_args()
 
