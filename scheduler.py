@@ -1,12 +1,16 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 import os
+import sys
 import time
 import datetime
 import logging
 import functools
 import subprocess
+from colorama import init
+from termcolor import cprint
+from pyfiglet import figlet_format
 
-
+init(strip=not sys.stdout.isatty())
 logging.basicConfig(level=logging.ERROR)
 
 scheduler = BackgroundScheduler()
@@ -101,6 +105,13 @@ if __name__ == '__main__':
     parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
     args = parser.parse_args()
 
+    print(f"Running GPU job scheduler...")
+    print("================================")
+    print()
+
+    cprint(figlet_format('GPU Job Scheduler!', font='larry3d'), attrs=['bold'])
+
+    print("================================")
     print(f"Monitoring with threshold {args.thres}.")
     print(f"Press Ctrl+C to stop.")
 
