@@ -1,23 +1,33 @@
-from apscheduler.schedulers.background import BackgroundScheduler
+import argparse
+import datetime
+import functools
+import logging
 import os
+import subprocess
 import sys
 import time
-import datetime
-import logging
-import functools
-import subprocess
+
+import nvidia_smi
+from apscheduler.schedulers.background import BackgroundScheduler
 from colorama import init
-from termcolor import cprint
 from pyfiglet import figlet_format
+from termcolor import cprint
+
 
 init(strip=not sys.stdout.isatty())
 logging.basicConfig(level=logging.ERROR)
 
 scheduler = BackgroundScheduler()
 
-def get_gpu_memory(targets=None):
-    import nvidia_smi
 
+def get_args():
+    parser = argparse.ArgumentParser(description='GPU job scheduler')
+    parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger job')
+    parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
+    return parser.parse_args()
+
+
+def get_gpu_memory(targets=None):
     nvidia_smi.nvmlInit()
     if targets == None:
         count = nvidia_smi.nvmlDeviceGetCount()
@@ -31,6 +41,7 @@ def get_gpu_memory(targets=None):
 
     return meminfos
 
+
 def main_scheduler(thres=1000, queue='queue.txt', interval=300):
     scheduler.add_job(main_job, 'interval', seconds=interval, args=[thres, queue], id='main_job', next_run_time=datetime.datetime.now())
     scheduler.start()
@@ -43,10 +54,12 @@ def main_scheduler(thres=1000, queue='queue.txt', interval=300):
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
 
+
 def pre_exec(gpus, meminfos, thres):
     for gpu, meminfo in zip(gpus, meminfos):
         print(f"GPU {gpu}: [{meminfo:.2f} / {thres}] MB")
     print("New job is submitted successfully 🚀")
+
 
 def main_job(thres, queue):
     #! Load jobs queued
@@ -100,12 +113,8 @@ def main_job(thres, queue):
         f.close()
 
 
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(description='GPU job scheduler')
-    parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger job')
-    parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
-    args = parser.parse_args()
+def main():
+    args = get_args()
 
     print(f"Running GPU job scheduler...")
     print("================================")
@@ -118,3 +127,7 @@ if __name__ == '__main__':
     print(f"Press Ctrl+C to stop.")
 
     main_scheduler(args.thres, args.queue)
+
+
+if __name__ == '__main__':
+    main()
