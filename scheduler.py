@@ -15,11 +15,13 @@ logging.basicConfig(level=logging.ERROR)
 
 scheduler = BackgroundScheduler()
 
-def get_gpu_memory(targets=[0, 1, 2, 3]):
+def get_gpu_memory(targets=None):
     import nvidia_smi
 
     nvidia_smi.nvmlInit()
-    count = nvidia_smi.nvmlDeviceGetCount()
+    if targets == None:
+        count = nvidia_smi.nvmlDeviceGetCount()
+        targets = list(range(count))
 
     meminfos = []
     for index in targets:
