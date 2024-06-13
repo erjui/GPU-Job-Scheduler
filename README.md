@@ -1,7 +1,7 @@
 # 🚀 GPU Job Scheduler
 
 A utility to automatically run commands depending on the GPU resources available.
-Enslave your GPU work till the evitable death! 🖥️⚡
+Enslave your GPU work till the inevitable death! 🖥️⚡
 
 ## ✨ Features
 - Automatically schedules and runs jobs based on GPU availability. No more manual juggling!
