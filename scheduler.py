@@ -101,7 +101,8 @@ def main_job(thres, queue):
 
         if cnt == len(gpus):
             infos = functools.partial(pre_exec, gpus, meminfos, thres)
-            process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cmd, shell=True)
+            env = {**os.environ, 'CUDA_VISIBLE_DEVICES': job[0]}
+            process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cmd, env=env, shell=True)
 
             runs.append(idx)
 
