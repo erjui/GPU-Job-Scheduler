@@ -39,7 +39,7 @@ def get_gpu_memory(targets=None):
         meminfo = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
         meminfos.append(meminfo.used / 1024 / 1024)
 
-    return meminfos
+    return meminfos, targets
 
 
 def main_scheduler(thres=1000, queue='queue.txt', interval=300):
@@ -89,10 +89,9 @@ def main_job(thres, queue):
     runs = []
     for idx, job in new_jobs:
         gpus, command, cmd = job
-        gpus = gpus.split(',')
-        gpus = [int(gpu) for gpu in gpus]
+        gpus = [int(gpu) for gpu in gpus.split(',')] if gpus else None
 
-        meminfos = get_gpu_memory(gpus)
+        meminfos, gpus = get_gpu_memory(gpus)
 
         cnt = 0
         for meminfo in meminfos:
@@ -101,7 +100,7 @@ def main_job(thres, queue):
 
         if cnt == len(gpus):
             infos = functools.partial(pre_exec, gpus, meminfos, thres)
-            env = {**os.environ, 'CUDA_VISIBLE_DEVICES': job[0]}
+            env = {**os.environ, 'CUDA_VISIBLE_DEVICES': ",".join([str(gpu) for gpu in gpus])}
             process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cmd, env=env, shell=True)
 
             runs.append(idx)
