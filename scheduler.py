@@ -88,7 +88,7 @@ def main_job(thres, queue):
     #! Check the condition to run job
     runs = []
     for idx, job in new_jobs:
-        gpus, command, cmd = job
+        gpus, command, cwd = job
         gpus = [int(gpu) for gpu in gpus.split(',')] if gpus else None
 
         meminfos, gpus = get_gpu_memory(gpus)
@@ -101,7 +101,7 @@ def main_job(thres, queue):
         if cnt == len(gpus):
             infos = functools.partial(pre_exec, gpus, meminfos, thres)
             env = {**os.environ, 'CUDA_VISIBLE_DEVICES': ",".join([str(gpu) for gpu in gpus])}
-            process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cmd, env=env, shell=True)
+            process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cwd, env=env, shell=True)
 
             runs.append(idx)
 
