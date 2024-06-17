@@ -69,6 +69,7 @@ def main_job(thres, queue):
 
     with open(queue, 'r') as f:
         jobs = f.read().splitlines()
+        jobs = [e for e in jobs if len(e.strip()) > 0]
         jobs = [e.split('#####') for e in jobs]
 
     #! Remove jobs not necessary
