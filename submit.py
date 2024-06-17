@@ -14,6 +14,11 @@ def get_args():
     return parser.parse_args()
 
 
+def copy2_verbose(src, dst):
+    print('Copying {0}'.format(src))
+    shutil.copy2(src, dst)
+
+
 def copy_directory(src, dst):
     if not os.path.exists(src):
         print(f"Source directory '{src}' does not exist. Skipping... 🤷")
@@ -21,7 +26,7 @@ def copy_directory(src, dst):
     if os.path.exists(dst):
         print(f"Destination directory '{dst}' already exists. Skipping... 🤷")
         return False
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, copy_function=copy2_verbose)
     print(f"Copied '{src}' to '{dst}' 🚀")
     return True
 
