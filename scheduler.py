@@ -13,6 +13,8 @@ from colorama import init
 from pyfiglet import figlet_format
 from termcolor import cprint
 
+from job import Job, JobQueue
+
 
 init(strip=not sys.stdout.isatty())
 logging.basicConfig(level=logging.ERROR)
@@ -63,20 +65,14 @@ def pre_exec(gpus, meminfos, thres):
 
 def main_job(thres, queue):
     #! Load jobs queued
-    if not os.path.exists(queue):
-        print("Job queue is not found.")
-        return
-
-    with open(queue, 'r') as f:
-        jobs = f.read().splitlines()
-        jobs = [e for e in jobs if len(e.strip()) > 0]
-        jobs = [e.split('#####') for e in jobs]
+    job_queue = JobQueue(queue)
+    jobs = job_queue.jobs
 
     #! Remove jobs not necessary
     occupied_gpus = []
     new_jobs = []
     for idx, job in enumerate(jobs):
-        gpus, command, _ = job
+        gpus, command = job.gpus, job.command
         gpus = gpus.split(',')
 
         # if any of gpus in occupied gpus
@@ -89,7 +85,7 @@ def main_job(thres, queue):
     #! Check the condition to run job
     runs = []
     for idx, job in new_jobs:
-        gpus, command, cwd = job
+        gpus, command, cwd = job.gpus, job.command, job.working_dir
         gpus = [int(gpu) for gpu in gpus.split(',')] if gpus else None
 
         meminfos, gpus = get_gpu_memory(gpus)
@@ -107,11 +103,8 @@ def main_job(thres, queue):
             runs.append(idx)
 
     #! Remove batched jobs (disble when debugging 😱)
-    with open(queue, 'w') as f:
-        for idx, job in enumerate(jobs):
-            if idx not in runs:
-                f.write(job[0] + '#####' + job[1] + '#####' + job[2] + '\n')
-        f.close()
+    job_queue.jobs = [job for idx, job in enumerate(jobs) if idx not in runs]
+    job_queue.save_jobs()
 
 
 def main():
