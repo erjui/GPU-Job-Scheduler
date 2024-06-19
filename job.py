@@ -20,11 +20,11 @@ class JobQueue:
     def get_jobs(self):
         return self.jobs
 
-    def get_runnable_jobs(self):
+    def get_valid_jobs(self):
         occupied_gpus = []
         new_jobs = []
         for idx, job in enumerate(self.jobs):
-            gpus, command = job.gpus, job.command
+            gpus = job.gpus
             gpus = gpus.split(',')
 
             # if any of gpus in occupied gpus

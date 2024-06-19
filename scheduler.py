@@ -70,16 +70,14 @@ def pre_exec(gpus, meminfos, thres):
 def main_job(thres):
     global job_queue
 
-    #! Load jobs queued
+    #! Load jobs
     job_queue.load_jobs()
-    jobs = job_queue.jobs
+    jobs = job_queue.get_jobs()
+    valid_jobs = job_queue.get_valid_jobs()
 
-    #! Remove jobs not necessary
-    new_jobs = job_queue.get_runnable_jobs()
-
-    #! Check the condition to run job
+    #! Run jobs
     runs = []
-    for idx, job in new_jobs:
+    for idx, job in valid_jobs:
         gpus, command, cwd = job.gpus, job.command, job.working_dir
         gpus = [int(gpu) for gpu in gpus.split(',')] if gpus else None
 
@@ -97,7 +95,7 @@ def main_job(thres):
 
             runs.append(idx)
 
-    #! Remove batched jobs (disble when debugging 😱)
+    #! Update jobs
     job_queue.jobs = [job for idx, job in enumerate(jobs) if idx not in runs]
     job_queue.save_jobs()
 
