@@ -13,13 +13,14 @@ from colorama import init
 from pyfiglet import figlet_format
 from termcolor import cprint
 
-from job import Job, JobQueue
+from job import JobQueue
 
 
 init(strip=not sys.stdout.isatty())
 logging.basicConfig(level=logging.ERROR)
 
 scheduler = BackgroundScheduler()
+job_queue = None
 
 
 def get_args():
@@ -45,7 +46,10 @@ def get_gpu_memory(targets=None):
 
 
 def main_scheduler(thres=1000, queue='queue.txt', interval=300):
-    scheduler.add_job(main_job, 'interval', seconds=interval, args=[thres, queue], id='main_job', next_run_time=datetime.datetime.now())
+    global job_queue
+
+    job_queue = JobQueue(queue)
+    scheduler.add_job(main_job, 'interval', seconds=interval, args=[thres], id='main_job', next_run_time=datetime.datetime.now())
     scheduler.start()
 
     try:
@@ -63,24 +67,15 @@ def pre_exec(gpus, meminfos, thres):
     print("New job is submitted successfully 🚀")
 
 
-def main_job(thres, queue):
+def main_job(thres):
+    global job_queue
+
     #! Load jobs queued
-    job_queue = JobQueue(queue)
+    job_queue.load_jobs()
     jobs = job_queue.jobs
 
     #! Remove jobs not necessary
-    occupied_gpus = []
-    new_jobs = []
-    for idx, job in enumerate(jobs):
-        gpus, command = job.gpus, job.command
-        gpus = gpus.split(',')
-
-        # if any of gpus in occupied gpus
-        if any(e in occupied_gpus for e in gpus):
-            continue
-
-        occupied_gpus.extend(gpus)
-        new_jobs.append([idx, job])
+    new_jobs = job_queue.get_runnable_jobs()
 
     #! Check the condition to run job
     runs = []
