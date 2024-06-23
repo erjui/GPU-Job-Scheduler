@@ -40,7 +40,16 @@ def get_gpu_memory(targets=None):
     for index in targets:
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(index)
         meminfo = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-        meminfos.append(meminfo.used / 1024 / 1024)
+        meminfo = {
+            'used': meminfo.used / 1024 / 1024,
+            'free': meminfo.free / 1024 / 1024,
+            'total': meminfo.total / 1024 / 1024,
+            'used_percent': meminfo.used / meminfo.total * 100,
+            'free_percent': meminfo.free / meminfo.total * 100,
+            'index': index,
+            'name': nvidia_smi.nvmlDeviceGetName(handle),
+        }
+        meminfos.append(meminfo)
 
     return meminfos, targets
 
@@ -61,9 +70,9 @@ def main_scheduler(thres=1000, queue='queue.txt', interval=300):
         scheduler.shutdown()
 
 
-def pre_exec(gpus, meminfos, thres):
-    for gpu, meminfo in zip(gpus, meminfos):
-        print(f"GPU {gpu}: [{meminfo:.2f} / {thres}] MB")
+def pre_exec(meminfos, thres):
+    for meminfo in meminfos:
+        print(f"GPU {meminfo['index']} ({meminfo['name']}): Used Memory [{meminfo['used']:.0f}/{meminfo['total']:.0f}] MB, Threshold: {thres} MB")
     print("New job is submitted successfully 🚀")
 
 
@@ -85,11 +94,11 @@ def main_job(thres):
 
         cnt = 0
         for meminfo in meminfos:
-            if meminfo < thres:
+            if meminfo['used'] < thres:
                 cnt += 1
 
         if cnt == len(gpus):
-            infos = functools.partial(pre_exec, gpus, meminfos, thres)
+            infos = functools.partial(pre_exec, meminfos, thres)
             env = {**os.environ, 'CUDA_VISIBLE_DEVICES': ",".join([str(gpu) for gpu in gpus])}
             process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cwd, env=env, shell=True)
 
