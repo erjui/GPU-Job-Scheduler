@@ -1,5 +1,5 @@
 apscheduler
-nvidia-ml-py3
+nvidia-ml-py
 colorama
 termcolor
 pyfiglet
