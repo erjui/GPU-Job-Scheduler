@@ -2,10 +2,13 @@ import os
 
 
 class Job:
-    def __init__(self, gpus, command, working_dir):
+    def __init__(self, gpus, command, working_dir, process=None):
         self.gpus = gpus
         self.command = command
         self.working_dir = working_dir
+
+        self.status = 'ready'  # ready -> running -> terminated
+        self.process = process
 
     def __str__(self):
         return f"{self.gpus}#####{self.command}#####{self.working_dir}"
@@ -56,6 +59,16 @@ class JobQueue:
 
             self.jobs = jobs
             return self.jobs
+
+    def update_jobs(self):
+        new_running_jobs = []
+        for job in self.running_jobs:
+            if job.status == 'running':
+                if job.process.poll() is not None:
+                    job.status = 'terminated'
+                else:
+                    new_running_jobs.append(job)
+        self.running_jobs = new_running_jobs
 
     def save_jobs(self):
         with open(self.queue_file, 'w') as f:

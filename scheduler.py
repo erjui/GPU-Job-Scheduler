@@ -81,6 +81,7 @@ def main_job(thres):
 
     #! Load jobs
     job_queue.load_jobs()
+    job_queue.update_jobs()
     jobs = job_queue.get_jobs()
     valid_jobs = job_queue.get_valid_jobs()
 
@@ -102,10 +103,13 @@ def main_job(thres):
             env = {**os.environ, 'CUDA_VISIBLE_DEVICES': ",".join([str(gpu) for gpu in gpus])}
             process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cwd, env=env, shell=True)
 
+            jobs[idx].process = process
+            jobs[idx].status = 'running'
             runs.append(idx)
 
     #! Update jobs
     job_queue.jobs = [job for idx, job in enumerate(jobs) if idx not in runs]
+    job_queue.running_jobs = [job for idx, job in enumerate(jobs) if idx in runs]
     job_queue.save_jobs()
 
 
