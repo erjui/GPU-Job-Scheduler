@@ -13,17 +13,20 @@ from colorama import init
 from pyfiglet import figlet_format
 from termcolor import cprint
 
+from job import JobQueue
+
 
 init(strip=not sys.stdout.isatty())
 logging.basicConfig(level=logging.ERROR)
 
 scheduler = BackgroundScheduler()
+job_queue = None
 
 
 def get_args():
     parser = argparse.ArgumentParser(description='GPU job scheduler')
     parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger job')
-    parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
+    parser.add_argument('--queue', type=str, default='queue.debug.json', help='Queue file path')
     return parser.parse_args()
 
 
@@ -37,13 +40,25 @@ def get_gpu_memory(targets=None):
     for index in targets:
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(index)
         meminfo = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-        meminfos.append(meminfo.used / 1024 / 1024)
+        meminfo = {
+            'used': meminfo.used / 1024 / 1024,
+            'free': meminfo.free / 1024 / 1024,
+            'total': meminfo.total / 1024 / 1024,
+            'used_percent': meminfo.used / meminfo.total * 100,
+            'free_percent': meminfo.free / meminfo.total * 100,
+            'index': index,
+            'name': nvidia_smi.nvmlDeviceGetName(handle),
+        }
+        meminfos.append(meminfo)
 
     return meminfos, targets
 
 
 def main_scheduler(thres=1000, queue='queue.txt', interval=300):
-    scheduler.add_job(main_job, 'interval', seconds=interval, args=[thres, queue], id='main_job', next_run_time=datetime.datetime.now())
+    global job_queue
+
+    job_queue = JobQueue(queue)
+    scheduler.add_job(main_job, 'interval', seconds=interval, args=[thres], id='main_job', next_run_time=datetime.datetime.now())
     scheduler.start()
 
     try:
@@ -55,63 +70,47 @@ def main_scheduler(thres=1000, queue='queue.txt', interval=300):
         scheduler.shutdown()
 
 
-def pre_exec(gpus, meminfos, thres):
-    for gpu, meminfo in zip(gpus, meminfos):
-        print(f"GPU {gpu}: [{meminfo:.2f} / {thres}] MB")
+def pre_exec(meminfos, thres):
+    for meminfo in meminfos:
+        print(f"GPU {meminfo['index']} ({meminfo['name']}): Used Memory [{meminfo['used']:.0f}/{meminfo['total']:.0f}] MB, Threshold: {thres} MB")
     print("New job is submitted successfully 🚀")
 
 
-def main_job(thres, queue):
-    #! Load jobs queued
-    if not os.path.exists(queue):
-        print("Job queue is not found.")
-        return
+def main_job(thres):
+    global job_queue
 
-    with open(queue, 'r') as f:
-        jobs = f.read().splitlines()
-        jobs = [e for e in jobs if len(e.strip()) > 0]
-        jobs = [e.split('#####') for e in jobs]
+    #! Load jobs
+    job_queue.load_jobs()
+    job_queue.update_jobs()
+    jobs = job_queue.get_jobs()
+    valid_jobs = job_queue.get_valid_jobs()
 
-    #! Remove jobs not necessary
-    occupied_gpus = []
-    new_jobs = []
-    for idx, job in enumerate(jobs):
-        gpus, command, _ = job
-        gpus = gpus.split(',')
-
-        # if any of gpus in occupied gpus
-        if any(e in occupied_gpus for e in gpus):
-            continue
-
-        occupied_gpus.extend(gpus)
-        new_jobs.append([idx, job])
-
-    #! Check the condition to run job
+    #! Run jobs
     runs = []
-    for idx, job in new_jobs:
-        gpus, command, cwd = job
+    for idx, job in valid_jobs:
+        gpus, command, cwd = job.gpus, job.command, job.working_dir
         gpus = [int(gpu) for gpu in gpus.split(',')] if gpus else None
 
         meminfos, gpus = get_gpu_memory(gpus)
 
         cnt = 0
         for meminfo in meminfos:
-            if meminfo < thres:
+            if meminfo['used'] < thres:
                 cnt += 1
 
         if cnt == len(gpus):
-            infos = functools.partial(pre_exec, gpus, meminfos, thres)
+            infos = functools.partial(pre_exec, meminfos, thres)
             env = {**os.environ, 'CUDA_VISIBLE_DEVICES': ",".join([str(gpu) for gpu in gpus])}
             process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cwd, env=env, shell=True)
 
+            jobs[idx].process = process
+            jobs[idx].status = 'running'
             runs.append(idx)
 
-    #! Remove batched jobs (disble when debugging 😱)
-    with open(queue, 'w') as f:
-        for idx, job in enumerate(jobs):
-            if idx not in runs:
-                f.write(job[0] + '#####' + job[1] + '#####' + job[2] + '\n')
-        f.close()
+    #! Update jobs
+    job_queue.jobs = [job for idx, job in enumerate(jobs) if idx not in runs]
+    job_queue.running_jobs = [job for idx, job in enumerate(jobs) if idx in runs]
+    job_queue.save_jobs()
 
 
 def main():
