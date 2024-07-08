@@ -2,6 +2,8 @@ import argparse
 import os
 import shutil
 
+from job import append_to_json
+
 
 def get_args():
     parser = argparse.ArgumentParser(description='Submit a job to the queue')
@@ -10,7 +12,7 @@ def get_args():
     parser.add_argument('--gpus', default='', help='The destination directory where the source will be copied')
     parser.add_argument('--command', required=True, help='The command to append to the queue file')
     parser.add_argument('--working_dir', required=True, help='The working directory where the command will be executed')
-    parser.add_argument('--queue', default='queue.txt', help='The queue file to append the command')
+    parser.add_argument('--queue', default='queue.debug.json', help='The queue file to append the command')
     return parser.parse_args()
 
 
@@ -32,8 +34,13 @@ def copy_directory(src, dst):
 
 
 def append_command_to_queue(gpus, command, working_dir, queue):
-    with open(queue, 'a') as f:
-        f.write(f"{gpus}#####{command}#####{working_dir}\n")
+    data = {
+        'gpus': gpus,
+        'command': command,
+        'working_dir': working_dir
+    }
+    append_to_json(queue, data)
+
     print(f"Appended job to '{queue}' 🚀")
 
 

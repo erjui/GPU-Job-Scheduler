@@ -1,3 +1,4 @@
+import json
 import os
 
 
@@ -12,6 +13,13 @@ class Job:
 
     def __str__(self):
         return f"{self.gpus}#####{self.command}#####{self.working_dir}"
+
+    def convert_to_json(self):
+        return {
+            'gpus': self.gpus,
+            'command': self.command,
+            'working_dir': self.working_dir,
+        }
 
 
 class JobQueue:
@@ -47,18 +55,9 @@ class JobQueue:
             self.jobs = []
             return self.jobs
 
-        with open(self.queue_file, 'r') as f:
-            lines = f.readlines()
-            jobs = []
-            for line in lines:
-                line = line.strip()
-                if len(line) == 0:
-                    continue
-                gpus, command, working_dir = line.split('#####')
-                jobs.append(Job(gpus, command, working_dir))
-
-            self.jobs = jobs
-            return self.jobs
+        self.jobs = read_json(self.queue_file)
+        self.jobs = [Job(job['gpus'], job['command'], job['working_dir']) for job in self.jobs]
+        return self.jobs
 
     def update_jobs(self):
         new_running_jobs = []
@@ -71,7 +70,28 @@ class JobQueue:
         self.running_jobs = new_running_jobs
 
     def save_jobs(self):
-        with open(self.queue_file, 'w') as f:
-            for job in self.jobs:
-                f.write(str(job) + '\n')
-            f.close()
+        write_json(self.queue_file, [job.convert_to_json() for job in self.jobs])
+
+
+def read_json(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            return data
+    except FileNotFoundError:
+        return []
+
+
+def write_json(file_path, data):
+    with open(file_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+
+def append_to_json(file_path, new_data):
+    data = read_json(file_path)
+    if isinstance(data, list):
+        data.append(new_data)
+    else:
+        print("Error: JSON file does not contain a list.")
+        return
+    write_json(file_path, data)

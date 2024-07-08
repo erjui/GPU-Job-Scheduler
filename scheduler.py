@@ -26,7 +26,7 @@ job_queue = None
 def get_args():
     parser = argparse.ArgumentParser(description='GPU job scheduler')
     parser.add_argument('--thres', type=int, default=5000, help='Threshold to trigger job')
-    parser.add_argument('--queue', type=str, default='queue.txt', help='Queue file path')
+    parser.add_argument('--queue', type=str, default='queue.debug.json', help='Queue file path')
     return parser.parse_args()
 
 
