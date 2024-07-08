@@ -30,11 +30,29 @@ This will display the help message with all available options and usage instruct
 
 Your `queue.txt` file should look like this:
 ```
-[gpus]#####[commands]#####[working_directory]
+[
+    {
+        "gpus": [gpus],
+        "command": [command],
+        "working_dir": [working_directory]"
+    }
+]
+
 ```
 For example:
 ```
-0,1,2,3#####python -c 'print("hello, world")'#####/home
+[
+    {
+        "gpus": "0,1,2,3",
+        "command": "python -c 'print(\"hello, world\")'",
+        "working_dir": "/home"
+    },
+    {
+        "gpus": "3,4",
+        "command": "python -c 'print(\"hello, world 2\")'",
+        "working_dir": "/home"
+    }
+]
 ```
 
 ### 🎬 Running the Scheduler
