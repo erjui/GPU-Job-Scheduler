@@ -17,7 +17,13 @@ from job import JobQueue
 
 
 init(strip=not sys.stdout.isatty())
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s:%(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    filename='scheduler.log',
+    filemode='w',
+)
 
 scheduler = BackgroundScheduler()
 job_queue = None
@@ -111,6 +117,11 @@ def main_job(thres):
     job_queue.jobs = [job for idx, job in enumerate(jobs) if idx not in runs]
     job_queue.running_jobs = [job for idx, job in enumerate(jobs) if idx in runs]
     job_queue.save_jobs()
+
+    # logging
+    logging.info(f"Jobs: {len(jobs)}, Valid Jobs: {len(valid_jobs)}, Running Jobs: {len(runs)}")
+    for meminfo in meminfos:
+        logging.info(f"GPU {meminfo['index']} ({meminfo['name']}): Used Memory [{meminfo['used']:.0f}/{meminfo['total']:.0f}] MB, Threshold: {thres} MB")
 
 
 def main():
