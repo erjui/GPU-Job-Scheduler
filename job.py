@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 
@@ -50,8 +51,8 @@ class JobQueue:
 
     def load_jobs(self):
         if not os.path.exists(self.queue_file):
-            print("Job queue is not found 😱")
-            print("Please create a queue file first.")
+            print("Job queue is not found 😱\nPlease create a queue file first.")
+            logging.error("Job queue is not found 😱")
 
             self.jobs = []
             return self.jobs
@@ -94,5 +95,6 @@ def append_to_json(file_path, new_data):
         data.append(new_data)
     else:
         print("Error: JSON file does not contain a list.")
+        logging.error("Error: JSON file does not contain a list.")
         return
     write_json(file_path, data)
