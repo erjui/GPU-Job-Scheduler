@@ -12,7 +12,8 @@ class Job:
         self.process = process
 
     def __str__(self):
-        return f"{self.gpus}#####{self.command}#####{self.working_dir}"
+        msg = f"GPUs: {self.gpus}\nCommand: {self.command}\nWorking Dir: {self.working_dir}\nStatus: {self.status}"
+        return msg
 
     def convert_to_json(self):
         return {
