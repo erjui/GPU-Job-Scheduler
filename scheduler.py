@@ -91,6 +91,10 @@ def main_job(thres):
     jobs = job_queue.get_jobs()
     valid_jobs = job_queue.get_valid_jobs()
 
+    occupied_gpus = [e['gpus'].split(',') for e in job_queue.running_jobs]
+    occupied_gpus = [gpu for sublist in occupied_gpus for gpu in sublist]
+    occupied_gpus = list(set(occupied_gpus))
+
     #! Run jobs
     runs = []
     for idx, job in valid_jobs:
@@ -105,6 +109,10 @@ def main_job(thres):
                 cnt += 1
 
         if cnt == len(gpus):
+            # ! warn if gpus are occupied by the other jobs
+            if gpus and any(gpu in occupied_gpus for gpu in gpus):
+                logging.warn(f"GPU {", ".join([str(gpu) for gpu in gpus])} are occupied by other jobs.")
+
             infos = functools.partial(pre_exec, meminfos, thres)
             env = {**os.environ, 'CUDA_VISIBLE_DEVICES': ",".join([str(gpu) for gpu in gpus])}
             process = subprocess.Popen(command, preexec_fn=infos, close_fds=True, cwd=cwd, env=env, shell=True)
